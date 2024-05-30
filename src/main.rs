@@ -1,3 +1,4 @@
+use clap::{arg, Parser};
 use crossterm::{
     event::{
         self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
@@ -6,14 +7,24 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    io,
-    time::{Duration, Instant},
+    env::args, io, time::{Duration, Instant}
 };
 use tui::{
     backend::{Backend, CrosstermBackend},
     style::{Modifier, Style},
     Frame, Terminal,
 };
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(short, long, default_value_t = 25)]
+    work_time: i64,
+    #[arg(short, long, default_value_t = 5)]
+    short_wait_time: i64,
+    #[arg(short, long, default_value_t = 20)]
+    long_wait_time: i64,
+    #[arg(short, long, default_value_t = 4)]
+    cycles: u32,
+}
 
 fn get_sys_time() -> u128 {
     let now = std::time::SystemTime::now();
@@ -25,11 +36,12 @@ fn get_sys_time() -> u128 {
 fn convert_millis_to_time(millis: u128) -> String {
     let seconds = millis / 1000;
     let minutes = seconds / 60;
-    format!("{}:{}", minutes, seconds % 60)
+    format!("{:02}:{:02}", minutes, seconds % 60)
 }
 
 fn main() -> Result<(), io::Error> {
     // setup terminal
+    let args = Parser::parse();
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -38,7 +50,7 @@ fn main() -> Result<(), io::Error> {
 
     // create app and run it
     let tick_rate = Duration::from_millis(500);
-    let app = App::new();
+    let app = App::new(args);
     let res = run_app(&mut terminal, app, tick_rate);
 
     // restore terminal
@@ -83,13 +95,13 @@ struct Settings {
     work_cycles: u32,
 }
 
-impl Default for Settings {
-    fn default() -> Self {
+impl Settings {
+    fn new(args: Args) -> Self {
         Self {
-            work_time: 25 * 60 * 1000,
-            short_wait_time: 5 * 60 * 1000,
-            long_wait_time: 20 * 60 * 1000,
-            work_cycles: 4,
+            work_time: args.work_time * 60 * 1000,
+            short_wait_time: args.short_wait_time * 60 * 1000,
+            long_wait_time: args.long_wait_time * 60 * 1000,
+            work_cycles: args.cycles,
         }
     }
 }
@@ -103,10 +115,10 @@ struct App {
 }
 
 impl App {
-    fn new() -> Self {
+    fn new(args: Args) -> Self {
         Self {
             state: PomoState::Menu,
-            settings: Default::default(),
+            settings: Settings::new(args),
             cycle: None,
             last_update_time: get_sys_time(),
             paused: false,
@@ -250,8 +262,8 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
     let gauge = tui::widgets::Gauge::default()
         .label(message)
         .gauge_style(
-            Style::fg(Style::default(), tui::style::Color::Cyan)
-                .bg(tui::style::Color::Black)
+            Style::fg(Style::default(), tui::style::Color::DarkGray)
+                .bg(tui::style::Color::White)   
                 .add_modifier(Modifier::empty()),
         )
         .ratio(ratio);
