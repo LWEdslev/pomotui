@@ -2,9 +2,9 @@
 name = "pomotui"
 authors = ["Lasse Edslev <lasse2905@gmail.com>"]
 repository = "https://github.com/LWEdslev/pomotui"
-description = "A simple pomodoro timer with a flexible TUI"
+description = "Pomodoro timer with a flexible TUI"
 license = "MIT"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 
 [dependencies]
