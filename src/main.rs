@@ -1,17 +1,16 @@
 use clap::{arg, Parser};
 use crossterm::{
-    event::{
-        self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode,
-    },
+    event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::{
-    env::args, io, time::{Duration, Instant}
+    io,
+    time::{Duration, Instant},
 };
 use tui::{
     backend::{Backend, CrosstermBackend},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     Frame, Terminal,
 };
 #[derive(Parser, Debug)]
@@ -24,6 +23,8 @@ struct Args {
     long_wait_time: i64,
     #[arg(short, long, default_value_t = 4)]
     cycles: u32,
+    #[arg(long, default_value_t = false)]
+    dark_mode: bool,
 }
 
 fn get_sys_time() -> u128 {
@@ -93,6 +94,7 @@ struct Settings {
     short_wait_time: i64,
     long_wait_time: i64,
     work_cycles: u32,
+    dark_mode: bool,
 }
 
 impl Settings {
@@ -102,6 +104,7 @@ impl Settings {
             short_wait_time: args.short_wait_time * 60 * 1000,
             long_wait_time: args.long_wait_time * 60 * 1000,
             work_cycles: args.cycles,
+            dark_mode: args.dark_mode,
         }
     }
 }
@@ -192,34 +195,55 @@ impl App {
         }
     }
 
-    fn get_text_and_ratio(&self) -> (String, f64) {
+    fn get_state_text(&self) -> String {
         if self.paused {
-            return ("PAUSED".into(), 1.);
+            return "PAUSED".into();
         };
         match self.state {
-            PomoState::Menu => ("Press 's' to start, 'q' to quit, 'p' to pause".into(), 0.),
-            PomoState::Work { time_left } => (
-                format!(
-                    "Work: {} - Cycle {}/{}",
-                    convert_millis_to_time(time_left as u128),
-                    self.settings.work_cycles - self.cycle.unwrap() + 1,
-                    self.settings.work_cycles
-                ),
-                time_left as f64 / self.settings.work_time as f64,
+            PomoState::Menu => "Press 's' to start, 'q' to quit, 'p' to pause".into(),
+            PomoState::Work { time_left } => format!(
+                "Work: {} - Cycle {}/{}",
+                convert_millis_to_time(time_left as u128),
+                self.settings.work_cycles - self.cycle.unwrap() + 1,
+                self.settings.work_cycles
             ),
-            PomoState::ShortWait { time_left } => (
-                format!(
-                    "Short break: {} - Cycle {}/{}",
-                    convert_millis_to_time(time_left as u128),
-                    self.settings.work_cycles - self.cycle.unwrap() + 1,
-                    self.settings.work_cycles
-                ),
-                time_left as f64 / self.settings.short_wait_time as f64,
+            PomoState::ShortWait { time_left } => format!(
+                "Short break: {} - Cycle {}/{}",
+                convert_millis_to_time(time_left as u128),
+                self.settings.work_cycles - self.cycle.unwrap() + 1,
+                self.settings.work_cycles
             ),
-            PomoState::LongWait { time_left } => (
-                format!("Long break: {}", convert_millis_to_time(time_left as u128)),
-                time_left as f64 / self.settings.long_wait_time as f64,
-            ),
+            PomoState::LongWait { time_left } => {
+                format!("Long break: {}", convert_millis_to_time(time_left as u128))
+            }
+        }
+    }
+
+    fn get_ratio(&self) -> f64 {
+        if self.paused {
+            return 1.;
+        };
+        match self.state {
+            PomoState::Menu => 0.,
+            PomoState::Work { time_left } => time_left as f64 / self.settings.work_time as f64,
+            PomoState::ShortWait { time_left } => {
+                time_left as f64 / self.settings.short_wait_time as f64
+            }
+            PomoState::LongWait { time_left } => {
+                time_left as f64 / self.settings.long_wait_time as f64
+            }
+        }
+    }
+
+    fn get_color(&self) -> tui::style::Color {
+        let ratio = self.get_ratio();
+        match self.state {
+            PomoState::Menu => Color::Gray,
+            PomoState::Work { .. } => {
+                Color::Rgb((ratio * 255.) as u8, 255 - (ratio * 255.) as u8, 0)
+            }
+            PomoState::ShortWait { .. } => Color::LightBlue,
+            PomoState::LongWait { .. } => Color::LightGreen,
         }
     }
 }
@@ -257,13 +281,18 @@ fn run_app<B: Backend>(
 }
 
 fn ui<B: Backend>(f: &mut Frame<B>, app: &App) {
-    let (message, ratio) = app.get_text_and_ratio();
+    let (message, ratio) = (app.get_state_text(), app.get_ratio());
     let size = f.size();
+    let color = app.get_color();
     let gauge = tui::widgets::Gauge::default()
         .label(message)
         .gauge_style(
-            Style::fg(Style::default(), tui::style::Color::DarkGray)
-                .bg(tui::style::Color::White)   
+            Style::fg(Style::default(), color)
+                .bg(if app.settings.dark_mode {
+                    Color::Black
+                } else {
+                    Color::White
+                })
                 .add_modifier(Modifier::empty()),
         )
         .ratio(ratio);
