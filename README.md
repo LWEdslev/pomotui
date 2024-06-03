@@ -11,7 +11,7 @@
 #### color approaches green as work time runs out
 ![](https://imgur.com/qOls6DX.png)
 #### after work stint a short break
-![](https://imgur.com/qOls6DX.png)
+![](https://imgur.com/h1DD3cX.png)
 #### after the specified cycles (default is 4) a long break
 ![](https://imgur.com/b9N0R7W.png) 
 #### if run with `pomotui --dark-mode`
