@@ -4,7 +4,7 @@ authors = ["Lasse Edslev <lasse2905@gmail.com>"]
 repository = "https://github.com/LWEdslev/pomotui"
 description = "Pomodoro timer with a flexible TUI"
 license = "MIT"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 
 [dependencies]
